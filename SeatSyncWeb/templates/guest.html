@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>SeatSync - Universe of Events</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+
+<!-- Nút đổi theme Trăng/Sao -->
+<button onclick="toggleTheme()" class="btn btn-outline-info position-fixed top-0 end-0 m-3" style="z-index: 100;">🌓 Toggle Theme</button>
+
+<!-- Lớp nền mờ ảo -->
+<div id="bg-overlay"></div>
+
+<div class="container mt-5">
+    <!-- Search Bar -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-6 position-relative">
+            <input type="text" id = "searchInput" class="form-control glass-panel text-light" placeholder="🔭 Search stellar events..." autocomplete="off">
+            <div id="searchResults" class="list-group position-absolute w-100 mt-2 shadow-lg glass-panel" style="display: none; z-index: 1000; max-height: 250px; overflow-y: auto;">                
+            </div>
+        </div>
+    </div>
+
+    <!-- 15 Events Grid -->
+    <div class="event-grid" id="grid">
+        {% for event in events %}
+        <div class="event-card glass-panel">
+            <!-- 2/3 Image Area (Dùng ảnh giả lập vũ trụ) -->
+            <div class="event-image" style="background-image: url('https://source.unsplash.com/random/400x400/?galaxy,nebula&sig={{ event.id }}');"></div>
+            
+            <!-- 1/3 Text Area -->
+            <div class="event-info text-light">
+                <h6 class="mb-0 fw-bold">{{ event.name }}</h6>
+                <small class="text-info">📍 {{ event.venue }}</small>
+                <small>👥 Rate: {{ event.rate }}</small>
+            </div>
+
+            <!-- Nút Đăng ký (Đã truyền ID và Tên sự kiện vào hàm JS) -->
+            <button class="btn btn-primary register-btn rounded-pill px-4" 
+                    onclick="openRegisterModal('{{ event.id }}', '{{ event.name }}')">
+                Register
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    <!-- THANH ĐIỀU HƯỚNG PHÂN TRANG (PAGINATION) -->
+    {% if total_pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-5 mb-5 pb-4">
+        <ul class="pagination justify-content-center custom-pagination">
+
+            <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
+                <a class="page-link glass-panel" href="{{ url_for('guest_dashboard', page=current_page-1) }}">⬅️ Trước</a>
+            </li>
+            
+            {% for p in page_iter %}
+                {% if p == '...' %}
+                    <!-- In ra dấu 3 chấm (Không bấm được) -->
+                    <li class="page-item disabled">
+                        <span class="page-link glass-panel text-muted border-0 bg-transparent fw-bold" style="letter-spacing: 2px;">...</span>
+                    </li>
+                {% else %}
+                    <!-- In ra số trang bình thường -->
+                    <li class="page-item">
+                        <a class="page-link glass-panel {% if current_page == p %}active-page text-dark fw-bold{% else %}text-light{% endif %}" 
+                           href="{{ url_for('guest_dashboard', page=p) }}">{{ p }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            <!-- Nút 'Trang sau' -->
+            <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
+                <a class="page-link glass-panel" href="{{ url_for('guest_dashboard', page=current_page+1) }}">Sau ➡️</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- BẢNG MODAL ĐIỀN THÔNG TIN ĐĂNG KÝ -->
+<div class="modal fade" id="registerEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel text-light border-info">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold text-info" id="modalEventName">Đăng ký sự kiện</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="registrationForm">
+                    <!-- Ô ẩn này cực kỳ quan trọng để Backend biết đang đăng ký sự kiện nào -->
+                    <input type="hidden" id="hiddenEventId" name="event_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-light">Tên hành khách (Name)</label>
+                        <input type="text" name="name" class="form-control bg-transparent text-light border-secondary" required placeholder="Nhập tên của bạn...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-light">Số điện thoại</label>
+                        <input type="tel" name="phone" class="form-control bg-transparent text-light border-secondary" required placeholder="09xx xxx xxx" pattern="[0-9]{10,11}">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-light">Email liên lạc</label>
+                        <input type="email" name="email" class="form-control bg-transparent text-light border-secondary" required placeholder="name@space.com">
+                    </div>
+                    
+                    <!-- Vùng hiển thị thông báo thành công/thất bại -->
+                    <div id="regAlert" class="alert d-none" role="alert"></div>
+
+                    <button type="submit" class="btn btn-info w-100 fw-bold py-2 rounded-pill" id="submitRegBtn">XÁC NHẬN ĐĂNG KÝ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- LOGIC AUTOCOMPLETE TÌM KIẾM ---
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    searchInput.addEventListener('input', async function() {
+        const query = this.value.trim(); // Lấy chữ khách hàng vừa gõ
+        
+        if (query.length === 0) {
+            searchResults.style.display = 'none'; // Gõ rỗng thì ẩn dropdown
+            return;
+        }
+
+        try {
+            // Gửi chữ đó về API của Flask
+            const response = await fetch(`/api/search_events?q=${encodeURIComponent(query)}`);
+            const events = await response.json();
+
+            // Xóa sạch danh sách kết quả cũ
+            searchResults.innerHTML = '';
+
+            if (events.length > 0) {
+                events.forEach(event => {
+                    // Tạo từng thẻ <a> cho mỗi sự kiện tìm được
+                    const a = document.createElement('a');
+                    a.href = '#'; 
+                    a.className = 'list-group-item list-group-item-action bg-transparent text-light border-secondary hover-highlight';
+                    
+                    // Tuyệt chiêu: Bôi sáng (Highlight) đúng cái chữ khách vừa gõ trong kết quả
+                    const regex = new RegExp(`(${query})`, 'gi');
+                    const highlightedName = event.name.replace(regex, '<strong class="text-info">$1</strong>');
+                    a.innerHTML = `⭐ ${highlightedName}`;
+                    
+                    // Bấm vào kết quả thì điền chữ vào ô search và đóng hộp
+                    a.onclick = function(e) {
+                        e.preventDefault();
+                        searchInput.value = event.name;
+                        searchResults.style.display = 'none';
+                        // Ở đây sếp có thể viết thêm lệnh lọc (filter) các ô vuông bên dưới 
+                    };
+                    searchResults.appendChild(a);
+                });
+                searchResults.style.display = 'block'; // Hiện dropdown
+            } else {
+                // Nếu tìm không ra
+                searchResults.innerHTML = '<div class="list-group-item bg-transparent text-muted border-secondary">Không tìm thấy sự kiện nào...</div>';
+                searchResults.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Lỗi khi fetch dữ liệu:', error);
+        }
+    });
+
+    // Ẩn bảng kết quả nếu khách click chuột ra chỗ khác ngoài ô search
+    document.addEventListener('click', function(e) {
+        if (e.target !== searchInput && e.target !== searchResults) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Logic đổi Dark/Light mode
+    function toggleTheme() {
+        const html = document.documentElement;
+        html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+
+    // Logic làm mờ background khi hover vào Card
+    const cards = document.querySelectorAll('.event-card');
+    const overlay = document.getElementById('bg-overlay');
+
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', () => overlay.classList.add('active'));
+        card.addEventListener('mouseleave', () => overlay.classList.remove('active'));
+    });
+
+    // --- LOGIC XỬ LÝ ĐĂNG KÝ SỰ KIỆN ---
+    const regModal = new bootstrap.Modal(document.getElementById('registerEventModal'));
+    const regForm = document.getElementById('registrationForm');
+    const alertBox = document.getElementById('regAlert');
+    const submitBtn = document.getElementById('submitRegBtn');
+
+    // Hàm mở bảng và điền sẵn tên sự kiện
+    function openRegisterModal(eventId, eventName) {
+        document.getElementById('hiddenEventId').value = eventId;
+        document.getElementById('modalEventName').innerText = `🎟️ ${eventName}`;
+        
+        // Reset lại form và ẩn thông báo cũ
+        regForm.reset();
+        alertBox.className = 'alert d-none';
+        submitBtn.disabled = false;
+        
+        regModal.show();
+    }
+
+    // Bắt sự kiện khi khách bấm nút "Xác nhận đăng ký"
+    regForm.addEventListener('submit', async function(e) {
+        e.preventDefault(); // Ngăn trình duyệt tải lại trang
+        
+        submitBtn.disabled = true; // Khóa nút tránh khách bấm đúp 2 lần
+        submitBtn.innerText = "Đang truyền tải dữ liệu...";
+
+        // Thu thập dữ liệu từ các ô nhập
+        const formData = new FormData(this);
+
+        try {
+            // Gửi dữ liệu về API trên Backend
+            const response = await fetch('/api/register_event', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            // Hiển thị thông báo (Xanh lá nếu success, Vàng nếu warning)
+            alertBox.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger');
+            
+            if (result.status === 'success') {
+                alertBox.classList.add('alert-success');
+                alertBox.innerText = result.message;
+                
+                // Tự động đóng bảng sau 2 giây
+                setTimeout(() => regModal.hide(), 2000);
+            } else if (result.status === 'warning') {
+                alertBox.classList.add('alert-warning');
+                alertBox.innerText = result.message;
+                submitBtn.disabled = false;
+                submitBtn.innerText = "XÁC NHẬN ĐĂNG KÝ";
+            } else {
+                alertBox.classList.add('alert-danger');
+                alertBox.innerText = result.message;
+                submitBtn.disabled = false;
+                submitBtn.innerText = "XÁC NHẬN ĐĂNG KÝ";
+            }
+        } catch (error) {
+            console.error('Lỗi truyền tải:', error);
+            alertBox.classList.remove('d-none');
+            alertBox.classList.add('alert-danger');
+            alertBox.innerText = "Mất kết nối với Trạm không gian. Vui lòng thử lại!";
+            submitBtn.disabled = false;
+            submitBtn.innerText = "XÁC NHẬN ĐĂNG KÝ";
+        }
+    });
+
+
+</script>
+</body>
+</html>

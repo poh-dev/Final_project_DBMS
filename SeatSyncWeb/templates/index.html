@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>SeatSync - Cổng Không Gian</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Thêm script của Bootstrap để chạy Modal -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body class="d-flex align-items-center justify-content-center" style="height: 100vh;">
+
+<!-- Nút đổi theme -->
+<button onclick="toggleTheme()" class="btn btn-outline-info position-fixed top-0 end-0 m-3" style="z-index: 100;">🌓 Toggle Theme</button>
+
+<!-- Nội dung giữa màn hình -->
+<div class="text-center glass-panel p-5" style="max-width: 600px;">
+    <h1 class="display-3 fw-bold text-info mb-3">🚀 SeatSync</h1>
+    <p class="lead text-light mb-5">Hệ thống đồng bộ dữ liệu sự kiện chuẩn vũ trụ.</p>
+    <!-- Nút gọi Modal Đăng nhập -->
+    <button class="btn btn-info btn-lg rounded-pill px-5 fw-bold" data-bs-toggle="modal" data-bs-target="#loginModal">
+        Khởi động trạm không gian
+    </button>
+</div>
+
+<!-- Modal Đăng nhập (Hiện lên khi bấm nút) -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel text-light border-info">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold text-info">Xác thực danh tính</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/login" method="POST">
+                    <p class="mb-3">Vui lòng chọn vai trò để hệ thống điều hướng:</p>
+                    
+                    <!-- Lựa chọn Role -->
+                    <div class="d-grid gap-3 mb-4">
+                        <input type="radio" class="btn-check" name="role" id="role-guest" value="guest" checked>
+                        <label class="btn btn-outline-info text-start p-3 rounded-3" for="role-guest">
+                            🛸 <strong>Guest</strong> - Tìm và đặt vé sự kiện
+                        </label>
+
+                        <input type="radio" class="btn-check" name="role" id="role-staff" value="staff">
+                        <label class="btn btn-outline-warning text-start p-3 rounded-3" for="role-staff">
+                            🛡️ <strong>Staff</strong> - Quản lý Check-in khách hàng
+                        </label>
+
+                        <input type="radio" class="btn-check" name="role" id="role-organizer" value="organizer">
+                        <label class="btn btn-outline-danger text-start p-3 rounded-3" for="role-organizer">
+                            👑 <strong>Organizer</strong> - Quản trị và tạo sự kiện
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-info w-100 fw-bold py-2 rounded-pill">Tiến vào Hệ thống</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleTheme() {
+        const html = document.documentElement;
+        html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+</script>
+</body>
+</html>

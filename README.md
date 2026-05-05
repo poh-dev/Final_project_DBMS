@@ -1,1 +1,1 @@
-# Final_project_DBMS
+About this repo, It contains 3 files, a folder of SeatSync website, i use it for illustrration. It can run independently. Another is Python_Application_Dev. This one i built for running and executing in terminal. And finally, DataCreation file, where the data comes from
